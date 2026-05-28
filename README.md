@@ -12,7 +12,8 @@ Key Features:
 🔔 Smart Notifications and reminders to keep users motivated
 📱 Smooth cross-platform mobile experience with modern UI/UX
 Technologies Used:
-Flutter for cross-platform mobile development
+Android mobile development
+Jeptpack Compose
 Firebase & REST APIs
 Real-time tracking and AI integration
 Clean Architecture & MVVM pattern
