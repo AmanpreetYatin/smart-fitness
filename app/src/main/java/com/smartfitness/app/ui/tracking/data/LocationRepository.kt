@@ -23,7 +23,7 @@ class LocationRepository @Inject constructor(
     suspend fun fetchRoute(origin: String, dest: String): RouteInfo = withContext(Dispatchers.IO) {
 
         val url = "https://maps.googleapis.com/maps/api/directions/json?" +
-                "origin=$origin&destination=$dest&key=AIzaSyASoF1bCuaz9UWMYbX4tK3V4weJsk1uINI"
+                "origin=$origin&destination=$dest&key="
 
         val response = URL(url).readText()
         val json = JSONObject(response)
