@@ -131,7 +131,6 @@ fun ChatScreen(navHostController: NavHostController)
             ChatMessage("Sure! Try a full body workout 3x/week 💪", false, System.currentTimeMillis())
         )
     }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(aiMessages.size) {
         aiMessages.lastOrNull()?.takeIf { it.role == "assistant" }?.let {
