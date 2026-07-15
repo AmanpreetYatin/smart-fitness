@@ -39,6 +39,11 @@ android {
         )
 
         // Google Maps API Key
+        buildConfigField(
+            "String",
+            "MAPS_API_KEY",
+            "\"${localProperties.getProperty("MAPS_API_KEY", "")}\""
+        )
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         manifestPlaceholders["FACEBOOK_APP_ID"] = localProperties.getProperty("FACEBOOK_APP_ID", "")
         manifestPlaceholders["FACEBOOK_CLIENT_TOKEN"] = localProperties.getProperty("FACEBOOK_CLIENT_TOKEN", "")
@@ -73,6 +78,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx.v2321) // Use -ktx for Kotlin
     implementation(libs.androidx.compose.material.icons.extended)
     implementation("com.google.firebase:firebase-database")
+    implementation(libs.google.firebase.firestore.ktx)
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
     implementation(libs.facebook.login) // Facebook Login SDK

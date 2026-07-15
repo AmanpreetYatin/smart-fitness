@@ -1,32 +1,44 @@
 package com.smartfitness.app.ui.tracking.data
 
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.smartfitness.app.ui.tracking.model.RiderLocation
 import javax.inject.Inject
 
 class FirebaseDataSource @Inject constructor() {
 
-    private val db = FirebaseDatabase.getInstance().reference
+    private val db = FirebaseFirestore.getInstance()
+    private var listener: ListenerRegistration? = null
 
     fun updateLocation(riderId: String, location: RiderLocation) {
-        db.child("riders_location")
-            .child(riderId)
-            .setValue(location)
+        db.collection("riders_location")
+            .document(riderId)
+            .set(location)
     }
 
     fun observeLocation(riderId: String, onChange: (RiderLocation) -> Unit) {
-        db.child("riders_location")
-            .child(riderId)
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val data = snapshot.getValue(RiderLocation::class.java)
-                    data?.let(onChange)
-                }
+        listener = db.collection("riders_location")
+            .document(riderId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                snapshot?.toObject(RiderLocation::class.java)?.let(onChange)
+            }
+    }
 
-                override fun onCancelled(error: DatabaseError) {}
-            })
+    fun updateDestination(riderId: String, address: String, lat: Double, lng: Double) {
+        db.collection("riders_location")
+            .document(riderId)
+            .update(
+                mapOf(
+                    "destinationAddress" to address,
+                    "destinationLat" to lat,
+                    "destinationLng" to lng
+                )
+            )
+    }
+
+    fun removeListener() {
+        listener?.remove()
+        listener = null
     }
 }

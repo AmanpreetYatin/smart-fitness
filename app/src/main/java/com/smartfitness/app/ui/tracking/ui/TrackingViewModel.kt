@@ -12,6 +12,7 @@ import com.smartfitness.app.core.utilities.HelperFunctions
 import com.smartfitness.app.core.utilities.MarkerAnimator
 import com.smartfitness.app.ui.tracking.data.LocationRepository
 import com.smartfitness.app.ui.tracking.model.RiderLocation
+import com.smartfitness.app.ui.tracking.model.RouteSegment
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,20 +34,22 @@ class TrackingViewModel @Inject constructor(
     private val _location = MutableStateFlow<RiderLocation?>(null)
     val location: StateFlow<RiderLocation?> = _location
 
-    private val _route = MutableStateFlow<List<LatLng>>(emptyList())
-    val route: StateFlow<List<LatLng>> = _route
+    private val _route = MutableStateFlow<List<RouteSegment>>(emptyList())
+    val route: StateFlow<List<RouteSegment>> = _route
     private val _eta = MutableStateFlow("")
     val eta: StateFlow<String> = _eta
 
     private val _distance = MutableStateFlow("")
     val distance: StateFlow<String> = _distance
 
-    private var isTrackingStarted = false
+    private val _isTrackingStarted = MutableStateFlow(false)
+    val isTrackingStarted: StateFlow<Boolean> = _isTrackingStarted
 
     fun startTracking() {
-        if (isTrackingStarted) return
+        if (_isTrackingStarted.value) return
 
         val riderId = "rider_123"
+        _isTrackingStarted.value = true
 
         // 👇 Listen Firebase updates (receiver side)
         repo.listenLocation(riderId) { location ->
@@ -62,15 +65,52 @@ class TrackingViewModel @Inject constructor(
 
     private var lastRouteFetchTime = 0L
     private var lastRoutePoint: LatLng? = null
-    val destination = LatLng(30.7228,  76.7487 )
+    private val _destination = MutableStateFlow<LatLng?>(null)
+    val destination: StateFlow<LatLng?> = _destination
+
+    fun setDestination(address: String, context: android.content.Context) {
+        viewModelScope.launch {
+            try {
+                val geocoder = android.location.Geocoder(context)
+                // Use the modern Geocoder API if possible, but for simplicity we use the sync one here
+                // Note: getFromLocationName is deprecated but still works for now. 
+                // In a real app, use the callback-based version for API 33+.
+
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocationName(address, 1)
+                AppLog.v(message = "Geocoding result for '$address': $addresses")
+                if (addresses?.isNotEmpty() == true) {
+                    val lat = addresses[0].latitude
+                    val lng = addresses[0].longitude
+                    val latLng = LatLng(lat, lng)
+                    _destination.value = latLng
+                    
+                    // Save to Firestore
+                    repo.saveDestination("rider_123", address, lat, lng)
+                    
+                    // Path calculation removed from here. 
+                    // Path will only be drawn once "Start Tracking" is clicked and we receive location updates.
+                }
+            } catch (e: Exception) {
+                _routeError.value = "Geocoding failed: ${e.message}"
+            }
+        }
+    }
 
     fun onNewLocation(location: RiderLocation) {
         val newLatLng = LatLng(location.lat, location.lng)
+        
+        // Sync destination from Firestore
+        if (location.destinationLat != null && location.destinationLng != null) {
+            _destination.value = LatLng(location.destinationLat, location.destinationLng)
+        }
+
 // ✅ Always update marker + animation
-        updateBearing(newLatLng)
         animateMarker(newLatLng)
         // ✅ Decide whether to refresh route
-        loadRoute(newLatLng, destination)
+        _destination.value?.let { dest ->
+            loadRoute(newLatLng, dest)
+        }
        /* if (shouldUpdateRoute(newLatLng)) {
             loadRoute(newLatLng, destination)
             lastRouteFetchTime = System.currentTimeMillis()
@@ -87,20 +127,6 @@ class TrackingViewModel @Inject constructor(
         lastLatLng = newLatLng
     }
 
-    fun updateBearing(newLatLng: LatLng) {
-
-        lastLatLng?.let { prev ->
-
-            val latDiff = newLatLng.latitude - prev.latitude
-            val lngDiff = newLatLng.longitude - prev.longitude
-
-            val angle = Math.toDegrees(
-                kotlin.math.atan2(lngDiff, latDiff)
-            ).toFloat()
-
-            _bearing.value = angle
-        }
-    }
     fun shouldUpdateRoute(newLatLng: LatLng): Boolean {
 
         // First time
@@ -159,7 +185,7 @@ class TrackingViewModel @Inject constructor(
                     "${origin.latitude},${origin.longitude}",
                     "${dest.latitude},${dest.longitude}"
                 )
-                _route.value = result.points
+                _route.value = result.segments
                 _eta.value = result.durationText
                 _distance.value = result.distanceText
                 _routeError.value = null

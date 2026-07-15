@@ -108,12 +108,22 @@ object HelperFunctions {
         return BitmapDescriptorFactory.fromBitmap(smallBitmap)
     }
     fun getBearing(start: LatLng, end: LatLng): Float {
-        val latDiff = end.latitude - start.latitude
-        val lngDiff = end.longitude - start.longitude
+        val lat1 = Math.toRadians(start.latitude)
+        val lng1 = Math.toRadians(start.longitude)
+        val lat2 = Math.toRadians(end.latitude)
+        val lng2 = Math.toRadians(end.longitude)
 
-        return Math.toDegrees(
-            kotlin.math.atan2(lngDiff, latDiff)
-        ).toFloat()
+        val dLng = lng2 - lng1
+        val y = kotlin.math.sin(dLng) * kotlin.math.cos(lat2)
+        val x = kotlin.math.cos(lat1) * kotlin.math.sin(lat2) -
+                kotlin.math.sin(lat1) * kotlin.math.cos(lat2) * kotlin.math.cos(dLng)
+
+        var bearing = Math.toDegrees(kotlin.math.atan2(y, x)).toFloat()
+        
+        // Adjust for icon orientation if it's facing opposite (add 180 degrees)
+        bearing = (bearing + 180) % 360
+        
+        return bearing
     }
 
     fun decodePolyline(encoded: String): List<LatLng> {
